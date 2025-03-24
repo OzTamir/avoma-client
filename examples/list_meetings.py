@@ -17,11 +17,15 @@ async def main():
         now = datetime.utcnow()
         seven_days_ago = now - timedelta(days=7)
 
+        # Get all meetings using pagination
         meetings = await client.meetings.list(
-            from_date=seven_days_ago.isoformat(), to_date=now.isoformat()
+            from_date=seven_days_ago.isoformat(),
+            to_date=now.isoformat(),
+            page_size=100,  # Use maximum page size for efficiency
+            follow_pagination=True,  # This will automatically fetch all pages
         )
 
-        print(f"Found {meetings.count} meetings:")
+        print(f"Found {len(meetings.results)} meetings:")
         for meeting in meetings.results:
             print(f"\nMeeting: {meeting.subject}")
             print(f"Status: {meeting.state}")

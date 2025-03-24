@@ -1,6 +1,7 @@
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 from uuid import UUID
+from urllib.parse import urlparse, parse_qs
 
 from ..models.meetings import Meeting, MeetingInsights, MeetingList, MeetingSentiment
 
@@ -20,28 +21,29 @@ class MeetingsAPI:
         is_call: Optional[bool] = None,
         is_internal: Optional[bool] = None,
         recording_duration__gte: Optional[float] = None,
+        follow_pagination: bool = False,
     ) -> MeetingList:
         """List meetings with optional filters.
 
         Args:
             from_date: Start date-time in ISO format
             to_date: End date-time in ISO format
-            page_size: Number of records per page
+            page_size: Number of records per page (max 100)
             is_call: Filter for voice calls
             is_internal: Filter for internal meetings
             recording_duration__gte: Minimum recording duration
+            follow_pagination: If True, will fetch all pages
 
         Returns:
-            Paginated list of meetings
+            Paginated list of meetings. If follow_pagination is True, will contain all meetings.
         """
         self.client.logger.debug(f"Listing meetings from {from_date} to {to_date}")
         params = {
             "from_date": from_date,
             "to_date": to_date,
+            "page_size": page_size or 100,  # Use max page size if not specified
         }
 
-        if page_size is not None:
-            params["page_size"] = page_size
         if is_call is not None:
             params["is_call"] = is_call
         if is_internal is not None:
@@ -49,9 +51,35 @@ class MeetingsAPI:
         if recording_duration__gte is not None:
             params["recording_duration__gte"] = recording_duration__gte
 
+        # Get first page
         data = await self.client._request("GET", "meetings", params=params)
         meeting_list = MeetingList.model_validate(data)
         self.client.logger.debug(f"Retrieved {len(meeting_list.results)} meetings")
+
+        # If follow_pagination is True and there are more pages, fetch them
+        if follow_pagination and meeting_list.next:
+            all_results = meeting_list.results
+            total_count = (
+                meeting_list.count
+            )  # Keep track of total count from first response
+
+            while meeting_list.next:
+                # Use the next URL directly
+                data = await self.client._request("GET", "", full_url=meeting_list.next)
+                meeting_list = MeetingList.model_validate(data)
+                all_results.extend(meeting_list.results)
+                self.client.logger.debug(
+                    f"Retrieved {len(meeting_list.results)} more meetings"
+                )
+
+            # Create a new MeetingList with all results
+            meeting_list = MeetingList(
+                count=total_count,  # Use the total count from first response
+                next=None,
+                previous=None,
+                results=all_results,
+            )
+
         return meeting_list
 
     async def get(self, uuid: UUID) -> Meeting:

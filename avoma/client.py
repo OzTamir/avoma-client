@@ -93,14 +93,16 @@ class AvomaClient:
         path: str,
         params: Optional[Dict[str, Any]] = None,
         json: Optional[Dict[str, Any]] = None,
+        full_url: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Make a request to the Avoma API.
 
         Args:
             method: HTTP method
-            path: API endpoint path
+            path: API endpoint path (ignored if full_url is provided)
             params: Optional query parameters
             json: Optional JSON body
+            full_url: Optional full URL to use instead of constructing from path
 
         Returns:
             API response as a dictionary
@@ -108,7 +110,7 @@ class AvomaClient:
         Raises:
             aiohttp.ClientError: If the request fails
         """
-        url = f"{self.base_url}/{path.lstrip('/')}/"
+        url = full_url if full_url else f"{self.base_url}/{path.lstrip('/')}/"
 
         # Log request details
         request_id = id(params) + id(json) if params or json else id(url)
@@ -121,7 +123,9 @@ class AvomaClient:
         async with self.session.request(
             method=method,
             url=url,
-            params=params,
+            params=(
+                params if not full_url else None
+            ),  # Don't add params if using full URL
             json=json,
         ) as response:
             json_response = await response.json()
