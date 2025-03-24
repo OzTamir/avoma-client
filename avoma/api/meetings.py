@@ -50,9 +50,9 @@ class MeetingsAPI:
         }
 
         if is_call is not None:
-            params["is_call"] = is_call
+            params["is_call"] = str(is_call).lower()
         if is_internal is not None:
-            params["is_internal"] = is_internal
+            params["is_internal"] = str(is_internal).lower()
         if recording_duration__gte is not None:
             params["recording_duration__gte"] = recording_duration__gte
 
