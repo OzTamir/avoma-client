@@ -1,9 +1,12 @@
 import pytest
 from datetime import datetime
 from uuid import UUID
+import re
+import json
+from unittest.mock import AsyncMock
 
-from aioresponses import aioresponses
 from avoma import AvomaClient
+from yarl import URL
 
 
 @pytest.fixture
@@ -11,14 +14,8 @@ def client():
     return AvomaClient("test-api-key")
 
 
-@pytest.fixture
-def mock_api():
-    with aioresponses() as m:
-        yield m
-
-
 @pytest.mark.asyncio
-async def test_list_transcriptions(client, mock_api):
+async def test_list_transcriptions():
     response_data = [
         {
             "uuid": "123e4567-e89b-12d3-a456-426614174000",
@@ -41,16 +38,23 @@ async def test_list_transcriptions(client, mock_api):
         }
     ]
 
-    mock_api.get(
-        "https://api.avoma.com/v1/transcriptions",
-        payload=response_data,
-        params={"from_date": "2024-02-14T00:00:00Z", "to_date": "2024-02-14T23:59:59Z"},
-    )
+    # Create client and replace _request with mock
+    client = AvomaClient("test-api-key")
+    client._request = AsyncMock(return_value=response_data)
 
+    # Call the API method
     transcriptions = await client.transcriptions.list(
         from_date="2024-02-14T00:00:00Z", to_date="2024-02-14T23:59:59Z"
     )
 
+    # Verify the mock was called with correct parameters
+    client._request.assert_called_once_with(
+        "GET",
+        "/transcriptions",
+        params={"from_date": "2024-02-14T00:00:00Z", "to_date": "2024-02-14T23:59:59Z"},
+    )
+
+    # Verify the response was processed correctly
     assert len(transcriptions) == 1
     transcription = transcriptions[0]
     assert transcription.uuid == UUID("123e4567-e89b-12d3-a456-426614174000")
@@ -64,7 +68,7 @@ async def test_list_transcriptions(client, mock_api):
 
 
 @pytest.mark.asyncio
-async def test_list_transcriptions_by_meeting(client, mock_api):
+async def test_list_transcriptions_by_meeting():
     meeting_uuid = "123e4567-e89b-12d3-a456-426614174001"
     response_data = [
         {
@@ -75,9 +79,21 @@ async def test_list_transcriptions_by_meeting(client, mock_api):
         }
     ]
 
-    mock_api.get(
-        "https://api.avoma.com/v1/transcriptions",
-        payload=response_data,
+    # Create client and replace _request with mock
+    client = AvomaClient("test-api-key")
+    client._request = AsyncMock(return_value=response_data)
+
+    # Call the API method with meeting_uuid
+    transcriptions = await client.transcriptions.list(
+        from_date="2024-02-14T00:00:00Z",
+        to_date="2024-02-14T23:59:59Z",
+        meeting_uuid=UUID(meeting_uuid),
+    )
+
+    # Verify the mock was called with correct parameters including meeting_uuid
+    client._request.assert_called_once_with(
+        "GET",
+        "/transcriptions",
         params={
             "from_date": "2024-02-14T00:00:00Z",
             "to_date": "2024-02-14T23:59:59Z",
@@ -85,18 +101,13 @@ async def test_list_transcriptions_by_meeting(client, mock_api):
         },
     )
 
-    transcriptions = await client.transcriptions.list(
-        from_date="2024-02-14T00:00:00Z",
-        to_date="2024-02-14T23:59:59Z",
-        meeting_uuid=UUID(meeting_uuid),
-    )
-
+    # Verify the response
     assert len(transcriptions) == 1
     assert transcriptions[0].uuid == UUID("123e4567-e89b-12d3-a456-426614174000")
 
 
 @pytest.mark.asyncio
-async def test_get_transcription(client, mock_api):
+async def test_get_transcription():
     transcription_uuid = "123e4567-e89b-12d3-a456-426614174000"
     response_data = {
         "uuid": transcription_uuid,
@@ -118,12 +129,19 @@ async def test_get_transcription(client, mock_api):
         "transcription_vtt_url": "https://example.com/transcript.vtt",
     }
 
-    mock_api.get(
-        f"https://api.avoma.com/v1/transcriptions/{transcription_uuid}",
-        payload=response_data,
+    # Create client and replace _request with mock
+    client = AvomaClient("test-api-key")
+    client._request = AsyncMock(return_value=response_data)
+
+    # Call the API method
+    transcription = await client.transcriptions.get(UUID(transcription_uuid))
+
+    # Verify the mock was called with correct URL path
+    client._request.assert_called_once_with(
+        "GET", f"/transcriptions/{transcription_uuid}"
     )
 
-    transcription = await client.transcriptions.get(UUID(transcription_uuid))
+    # Verify the response
     assert transcription.uuid == UUID(transcription_uuid)
     assert len(transcription.transcript) == 1
     assert transcription.transcript[0].transcript == "Hello, how are you?"

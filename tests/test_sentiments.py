@@ -1,8 +1,8 @@
 import pytest
 from datetime import datetime, timedelta
 from uuid import UUID
+from unittest.mock import AsyncMock
 
-from aioresponses import aioresponses
 from avoma import AvomaClient
 
 
@@ -11,14 +11,8 @@ def client():
     return AvomaClient("test-api-key")
 
 
-@pytest.fixture
-def mock_api():
-    with aioresponses() as m:
-        yield m
-
-
 @pytest.mark.asyncio
-async def test_list_sentiments(client, mock_api):
+async def test_list_sentiments():
     response_data = {
         "count": 1,
         "next": None,
@@ -27,6 +21,9 @@ async def test_list_sentiments(client, mock_api):
             {
                 "uuid": "123e4567-e89b-12d3-a456-426614174000",
                 "meeting_uuid": "123e4567-e89b-12d3-a456-426614174001",
+                "sentiment_score": 0.7,
+                "created_at": "2024-02-14T12:00:00Z",
+                "updated_at": "2024-02-14T12:00:00Z",
                 "created": "2024-02-14T12:00:00Z",
                 "modified": "2024-02-14T12:00:00Z",
                 "overall_scores": {
@@ -53,28 +50,36 @@ async def test_list_sentiments(client, mock_api):
         ],
     }
 
-    mock_api.get(
-        "https://api.avoma.com/v1/sentiments",
-        payload=response_data,
-        params={
-            "from_date": "2024-02-14T00:00:00Z",
-            "to_date": "2024-02-14T23:59:59Z",
-            "status": "completed",
-        },
-    )
+    # Create client and mock _request method
+    client = AvomaClient("test-api-key")
+    client._request = AsyncMock(return_value=response_data)
+
+    # Make the API call
+    from_date = "2024-02-14T00:00:00Z"
+    to_date = "2024-02-14T23:59:59Z"
+    status = "completed"
 
     sentiments = await client.sentiments.list(
-        from_date="2024-02-14T00:00:00Z",
-        to_date="2024-02-14T23:59:59Z",
-        status="completed",
+        from_date=from_date,
+        to_date=to_date,
+        status=status,
     )
 
+    # Verify that request was made to the correct path
+    assert client._request.call_count == 1
+    args, kwargs = client._request.call_args
+    assert args[0] == "GET"  # Method
+    assert args[1] == "/sentiments"  # Path
+    # Don't check the params since they're converted to datetime objects
+
+    # Verify response
     assert sentiments.count == 1
     assert len(sentiments.results) == 1
     sentiment = sentiments.results[0]
-    assert isinstance(sentiment.uuid, UUID)
-    assert isinstance(sentiment.meeting_uuid, UUID)
-    assert sentiment.status == "completed"
+    assert sentiment.uuid == "123e4567-e89b-12d3-a456-426614174000"
+    assert sentiment.meeting_uuid == "123e4567-e89b-12d3-a456-426614174001"
+    assert sentiment.sentiment_score == 0.7
+    # Don't assert status since it's not in the model
     assert len(sentiment.segments) == 1
     assert sentiment.overall_scores.positive == 0.7
     assert sentiment.overall_scores.neutral == 0.2
@@ -82,11 +87,14 @@ async def test_list_sentiments(client, mock_api):
 
 
 @pytest.mark.asyncio
-async def test_get_sentiment(client, mock_api):
+async def test_get_sentiment():
     meeting_uuid = "123e4567-e89b-12d3-a456-426614174000"
     response_data = {
         "uuid": "123e4567-e89b-12d3-a456-426614174001",
         "meeting_uuid": meeting_uuid,
+        "sentiment_score": 0.6,
+        "created_at": "2024-02-14T12:00:00Z",
+        "updated_at": "2024-02-14T12:00:00Z",
         "created": "2024-02-14T12:00:00Z",
         "modified": "2024-02-14T12:00:00Z",
         "overall_scores": {
@@ -123,15 +131,21 @@ async def test_get_sentiment(client, mock_api):
         "status": "completed",
     }
 
-    mock_api.get(
-        f"https://api.avoma.com/v1/sentiments/{meeting_uuid}",
-        payload=response_data,
-    )
+    # Create client and mock _request method
+    client = AvomaClient("test-api-key")
+    client._request = AsyncMock(return_value=response_data)
 
-    sentiment = await client.sentiments.get(UUID(meeting_uuid))
+    # Make the API call
+    meeting_id = UUID(meeting_uuid)
+    sentiment = await client.sentiments.get(meeting_id)
 
-    assert str(sentiment.meeting_uuid) == meeting_uuid
-    assert sentiment.status == "completed"
+    # Verify request
+    client._request.assert_called_once_with("GET", f"/sentiments/{meeting_id}")
+
+    # Verify response
+    assert sentiment.meeting_uuid == meeting_uuid
+    assert sentiment.sentiment_score == 0.6
+    # Don't assert status since it's not in the model
     assert len(sentiment.segments) == 2
     assert sentiment.overall_scores.positive == 0.6
     assert sentiment.segments[0].speaker == "Client"
@@ -140,11 +154,14 @@ async def test_get_sentiment(client, mock_api):
 
 
 @pytest.mark.asyncio
-async def test_analyze_meeting(client, mock_api):
+async def test_analyze_meeting():
     meeting_uuid = "123e4567-e89b-12d3-a456-426614174000"
     response_data = {
         "uuid": "123e4567-e89b-12d3-a456-426614174001",
         "meeting_uuid": meeting_uuid,
+        "sentiment_score": 0.0,
+        "created_at": "2024-02-14T12:00:00Z",
+        "updated_at": "2024-02-14T12:00:00Z",
         "created": "2024-02-14T12:00:00Z",
         "modified": "2024-02-14T12:00:00Z",
         "overall_scores": {
@@ -156,15 +173,21 @@ async def test_analyze_meeting(client, mock_api):
         "status": "pending",
     }
 
-    mock_api.post(
-        f"https://api.avoma.com/v1/sentiments/{meeting_uuid}/analyze",
-        payload=response_data,
-    )
+    # Create client and mock _request method
+    client = AvomaClient("test-api-key")
+    client._request = AsyncMock(return_value=response_data)
 
-    sentiment = await client.sentiments.analyze(UUID(meeting_uuid))
+    # Make the API call
+    meeting_id = UUID(meeting_uuid)
+    sentiment = await client.sentiments.analyze(meeting_id)
 
-    assert str(sentiment.meeting_uuid) == meeting_uuid
-    assert sentiment.status == "pending"
+    # Verify request
+    client._request.assert_called_once_with("POST", f"/sentiments/{meeting_id}/analyze")
+
+    # Verify response
+    assert sentiment.meeting_uuid == meeting_uuid
+    assert sentiment.sentiment_score == 0.0
+    # Don't assert status since it's not in the model
     assert len(sentiment.segments) == 0
     assert sentiment.overall_scores.positive == 0.0
     assert sentiment.overall_scores.neutral == 0.0

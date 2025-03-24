@@ -1,8 +1,8 @@
 import pytest
 from datetime import datetime, timedelta
 from uuid import UUID
+from unittest.mock import AsyncMock
 
-from aioresponses import aioresponses
 from avoma import AvomaClient
 from avoma.models.calls import CallCreate, CallUpdate
 
@@ -12,14 +12,8 @@ def client():
     return AvomaClient("test-api-key")
 
 
-@pytest.fixture
-def mock_api():
-    with aioresponses() as m:
-        yield m
-
-
 @pytest.mark.asyncio
-async def test_list_calls(client, mock_api):
+async def test_list_calls():
     response_data = {
         "count": 1,
         "next": None,
@@ -61,17 +55,18 @@ async def test_list_calls(client, mock_api):
         ],
     }
 
-    mock_api.get(
-        "https://api.avoma.com/v1/calls",
-        payload=response_data,
-        params={
-            "from_date": "2024-02-14T00:00:00Z",
-            "to_date": "2024-02-14T23:59:59Z",
-        },
-    )
+    # Create client and replace _request with mock
+    client = AvomaClient("test-api-key")
+    client._request = AsyncMock(return_value=response_data)
 
-    calls = await client.calls.list(
-        from_date="2024-02-14T00:00:00Z", to_date="2024-02-14T23:59:59Z"
+    # Call the API method
+    from_date = "2024-02-14T00:00:00Z"
+    to_date = "2024-02-14T23:59:59Z"
+    calls = await client.calls.list(from_date=from_date, to_date=to_date)
+
+    # Verify the mock was called with correct parameters
+    client._request.assert_called_once_with(
+        "GET", "/calls", params={"from_date": from_date, "to_date": to_date}
     )
 
     assert calls.count == 1
@@ -79,183 +74,226 @@ async def test_list_calls(client, mock_api):
     call = calls.results[0]
     assert isinstance(call.uuid, UUID)
     assert call.title == "Weekly Team Sync"
+    assert call.description == "Regular team sync meeting"
     assert call.status.state == "scheduled"
     assert len(call.participants) == 1
+    assert call.participants[0].email == "participant@example.com"
     assert call.host.email == "host@example.com"
+    assert call.host.role == "host"
+    assert call.recording_available is False
+    assert call.transcription_available is False
 
 
 @pytest.mark.asyncio
-async def test_get_call(client, mock_api):
+async def test_get_call():
     call_uuid = "123e4567-e89b-12d3-a456-426614174000"
     response_data = {
         "uuid": call_uuid,
-        "title": "Sales Demo",
-        "description": "Product demo for potential client",
+        "title": "Weekly Team Sync",
+        "description": "Regular team sync meeting",
         "created": "2024-02-14T12:00:00Z",
         "modified": "2024-02-14T12:00:00Z",
-        "scheduled_start": "2024-02-15T14:00:00Z",
-        "scheduled_duration": 60,
-        "status": {
-            "state": "completed",
-            "started_at": "2024-02-15T14:00:00Z",
-            "ended_at": "2024-02-15T15:00:00Z",
-            "duration": 3600,
-        },
-        "participants": [],
-        "host": {
-            "uuid": "123e4567-e89b-12d3-a456-426614174001",
-            "email": "sales@example.com",
-            "name": "Sales Rep",
-            "role": "host",
-        },
-        "recording_available": True,
-        "transcription_available": True,
-    }
-
-    mock_api.get(
-        f"https://api.avoma.com/v1/calls/{call_uuid}",
-        payload=response_data,
-    )
-
-    call = await client.calls.get(UUID(call_uuid))
-
-    assert str(call.uuid) == call_uuid
-    assert call.title == "Sales Demo"
-    assert call.status.state == "completed"
-    assert call.status.duration == 3600
-    assert call.recording_available
-    assert call.transcription_available
-
-
-@pytest.mark.asyncio
-async def test_create_call(client, mock_api):
-    scheduled_start = datetime.utcnow() + timedelta(days=1)
-    call_data = CallCreate(
-        title="Project Kickoff",
-        description="Initial project planning meeting",
-        scheduled_start=scheduled_start,
-        scheduled_duration=45,
-        host_email="project.lead@example.com",
-        participant_emails=["team1@example.com", "team2@example.com"],
-        integration_type="teams",
-    )
-
-    response_data = {
-        "uuid": "123e4567-e89b-12d3-a456-426614174000",
-        "title": call_data.title,
-        "description": call_data.description,
-        "created": "2024-02-14T12:00:00Z",
-        "modified": "2024-02-14T12:00:00Z",
-        "scheduled_start": scheduled_start.isoformat() + "Z",
-        "scheduled_duration": call_data.scheduled_duration,
-        "status": {"state": "scheduled"},
-        "participants": [
-            {
-                "uuid": "123e4567-e89b-12d3-a456-426614174001",
-                "email": email,
-                "name": "Team Member",
-                "role": "attendee",
-            }
-            for email in call_data.participant_emails
-        ],
-        "host": {
-            "uuid": "123e4567-e89b-12d3-a456-426614174002",
-            "email": call_data.host_email,
-            "name": "Project Lead",
-            "role": "host",
-        },
-        "integration_type": call_data.integration_type,
-        "recording_available": False,
-        "transcription_available": False,
-    }
-
-    mock_api.post(
-        "https://api.avoma.com/v1/calls",
-        payload=response_data,
-    )
-
-    call = await client.calls.create(call_data)
-
-    assert call.title == call_data.title
-    assert call.scheduled_duration == call_data.scheduled_duration
-    assert call.host.email == call_data.host_email
-    assert len(call.participants) == len(call_data.participant_emails)
-
-
-@pytest.mark.asyncio
-async def test_update_call(client, mock_api):
-    call_uuid = "123e4567-e89b-12d3-a456-426614174000"
-    update_data = CallUpdate(
-        title="Updated Meeting Title",
-        description="Updated agenda",
-        participant_emails=["new.participant@example.com"],
-    )
-
-    response_data = {
-        "uuid": call_uuid,
-        "title": update_data.title,
-        "description": update_data.description,
-        "created": "2024-02-14T12:00:00Z",
-        "modified": "2024-02-14T13:00:00Z",
         "scheduled_start": "2024-02-15T15:00:00Z",
         "scheduled_duration": 30,
-        "status": {"state": "scheduled"},
+        "status": {
+            "state": "scheduled",
+            "started_at": None,
+            "ended_at": None,
+            "duration": None,
+        },
         "participants": [
             {
                 "uuid": "123e4567-e89b-12d3-a456-426614174001",
-                "email": "new.participant@example.com",
-                "name": "New Participant",
+                "email": "participant@example.com",
+                "name": "Team Member",
                 "role": "attendee",
             }
         ],
         "host": {
             "uuid": "123e4567-e89b-12d3-a456-426614174002",
             "email": "host@example.com",
-            "name": "Host",
+            "name": "Meeting Host",
             "role": "host",
         },
+        "meeting_url": "https://meet.example.com/123",
         "recording_available": False,
         "transcription_available": False,
+        "integration_type": "zoom",
     }
 
-    mock_api.put(
-        f"https://api.avoma.com/v1/calls/{call_uuid}",
-        payload=response_data,
-    )
+    # Create client and replace _request with mock
+    client = AvomaClient("test-api-key")
+    client._request = AsyncMock(return_value=response_data)
 
-    call = await client.calls.update(UUID(call_uuid), update_data)
+    # Call the API method
+    call = await client.calls.get(UUID(call_uuid))
 
-    assert str(call.uuid) == call_uuid
-    assert call.title == update_data.title
-    assert call.description == update_data.description
+    # Verify the mock was called with correct URL path
+    client._request.assert_called_once_with("GET", f"/calls/{call_uuid}")
+
+    assert call.uuid == UUID(call_uuid)
+    assert call.title == "Weekly Team Sync"
+    assert call.description == "Regular team sync meeting"
+    assert call.status.state == "scheduled"
     assert len(call.participants) == 1
-    assert call.participants[0].email == "new.participant@example.com"
+    assert call.participants[0].email == "participant@example.com"
+    assert call.host.email == "host@example.com"
+    assert call.host.role == "host"
+    assert call.recording_available is False
+    assert call.transcription_available is False
 
 
 @pytest.mark.asyncio
-async def test_call_lifecycle(client, mock_api):
+async def test_create_call():
+    response_data = {
+        "uuid": "123e4567-e89b-12d3-a456-426614174000",
+        "title": "New Call",
+        "description": "Created via API",
+        "created": "2024-02-14T12:00:00Z",
+        "modified": "2024-02-14T12:00:00Z",
+        "scheduled_start": "2024-02-15T15:00:00Z",
+        "scheduled_duration": 45,
+        "status": {
+            "state": "scheduled",
+            "started_at": None,
+            "ended_at": None,
+            "duration": None,
+        },
+        "participants": [
+            {
+                "uuid": "123e4567-e89b-12d3-a456-426614174001",
+                "email": "participant@example.com",
+                "name": "Team Member",
+                "role": "attendee",
+            }
+        ],
+        "host": {
+            "uuid": "123e4567-e89b-12d3-a456-426614174002",
+            "email": "host@example.com",
+            "name": "Meeting Host",
+            "role": "host",
+        },
+        "meeting_url": "https://meet.example.com/new",
+        "recording_available": False,
+        "transcription_available": False,
+        "integration_type": "zoom",
+    }
+
+    scheduled_start = datetime.now() + timedelta(days=1)
+    call_data = CallCreate(
+        title="New Call",
+        description="Created via API",
+        scheduled_start=scheduled_start.isoformat(),
+        scheduled_duration=45,
+        host_email="host@example.com",
+        participant_emails=["participant@example.com"],
+        integration_type="zoom",
+    )
+
+    # Create client and replace _request with mock
+    client = AvomaClient("test-api-key")
+    client._request = AsyncMock(return_value=response_data)
+
+    # Call the API method
+    call = await client.calls.create(call_data)
+
+    # Verify the mock was called with correct parameters
+    client._request.assert_called_once_with(
+        "POST", "/calls", json=call_data.model_dump(exclude_unset=True)
+    )
+
+    assert call.uuid == UUID("123e4567-e89b-12d3-a456-426614174000")
+    assert call.title == "New Call"
+    assert call.description == "Created via API"
+    assert call.scheduled_duration == 45
+    assert call.recording_available is False
+    assert call.transcription_available is False
+
+
+@pytest.mark.asyncio
+async def test_update_call():
     call_uuid = "123e4567-e89b-12d3-a456-426614174000"
-    base_response = {
+    response_data = {
+        "uuid": call_uuid,
+        "title": "Updated Call",
+        "description": "Updated via API",
+        "created": "2024-02-14T12:00:00Z",
+        "modified": "2024-02-14T13:00:00Z",
+        "scheduled_start": "2024-02-15T16:00:00Z",
+        "scheduled_duration": 60,
+        "status": {
+            "state": "scheduled",
+            "started_at": None,
+            "ended_at": None,
+            "duration": None,
+        },
+        "participants": [],
+        "host": {
+            "uuid": "123e4567-e89b-12d3-a456-426614174002",
+            "email": "host@example.com",
+            "name": "Meeting Host",
+            "role": "host",
+        },
+        "meeting_url": "https://meet.example.com/updated",
+        "recording_available": False,
+        "transcription_available": False,
+        "integration_type": "teams",
+    }
+
+    update_data = CallUpdate(
+        title="Updated Call",
+        description="Updated via API",
+        scheduled_duration=60,
+    )
+
+    # Create client and replace _request with mock
+    client = AvomaClient("test-api-key")
+    client._request = AsyncMock(return_value=response_data)
+
+    # Call the API method
+    call = await client.calls.update(UUID(call_uuid), update_data)
+
+    # Verify the mock was called with correct parameters
+    client._request.assert_called_once_with(
+        "PUT", f"/calls/{call_uuid}", json=update_data.model_dump(exclude_unset=True)
+    )
+
+    assert call.uuid == UUID(call_uuid)
+    assert call.title == "Updated Call"
+    assert call.description == "Updated via API"
+    assert call.scheduled_duration == 60
+    assert call.recording_available is False
+    assert call.transcription_available is False
+
+
+@pytest.mark.asyncio
+async def test_call_lifecycle():
+    call_uuid = "123e4567-e89b-12d3-a456-426614174000"
+
+    # Base call response with required fields
+    base_call = {
         "uuid": call_uuid,
         "title": "Test Call",
+        "description": "Lifecycle test",
         "created": "2024-02-14T12:00:00Z",
         "modified": "2024-02-14T12:00:00Z",
         "scheduled_start": "2024-02-14T15:00:00Z",
         "scheduled_duration": 30,
         "participants": [],
         "host": {
-            "uuid": "123e4567-e89b-12d3-a456-426614174001",
+            "uuid": "123e4567-e89b-12d3-a456-426614174002",
             "email": "host@example.com",
-            "name": "Host",
+            "name": "Meeting Host",
             "role": "host",
         },
+        "meeting_url": "https://meet.example.com/test",
         "recording_available": False,
         "transcription_available": False,
     }
 
-    # Test starting a call
+    # Mock for start
     start_response = {
-        **base_response,
+        **base_call,
         "status": {
             "state": "in_progress",
             "started_at": "2024-02-14T15:00:00Z",
@@ -263,37 +301,22 @@ async def test_call_lifecycle(client, mock_api):
             "duration": None,
         },
     }
-    mock_api.post(
-        f"https://api.avoma.com/v1/calls/{call_uuid}/start",
-        payload=start_response,
-    )
 
-    started_call = await client.calls.start(UUID(call_uuid))
-    assert started_call.status.state == "in_progress"
-    assert started_call.status.started_at is not None
-
-    # Test ending a call
+    # Mock for end
     end_response = {
-        **base_response,
+        **base_call,
         "status": {
             "state": "completed",
             "started_at": "2024-02-14T15:00:00Z",
             "ended_at": "2024-02-14T15:30:00Z",
-            "duration": 1800,
+            "duration": 1800,  # 30 minutes in seconds
         },
+        "recording_available": True,
     }
-    mock_api.post(
-        f"https://api.avoma.com/v1/calls/{call_uuid}/end",
-        payload=end_response,
-    )
 
-    ended_call = await client.calls.end(UUID(call_uuid))
-    assert ended_call.status.state == "completed"
-    assert ended_call.status.duration == 1800
-
-    # Test cancelling a call
+    # Mock for cancel
     cancel_response = {
-        **base_response,
+        **base_call,
         "status": {
             "state": "cancelled",
             "started_at": None,
@@ -301,10 +324,36 @@ async def test_call_lifecycle(client, mock_api):
             "duration": None,
         },
     }
-    mock_api.post(
-        f"https://api.avoma.com/v1/calls/{call_uuid}/cancel",
-        payload=cancel_response,
+
+    # Create client and replace _request with multiple return values
+    client = AvomaClient("test-api-key")
+    mock_request = AsyncMock()
+    mock_request.side_effect = [start_response, end_response, cancel_response]
+    client._request = mock_request
+
+    # Test start method
+    start_result = await client.calls.start(UUID(call_uuid))
+    assert start_result.status.state == "in_progress"
+    assert (
+        start_result.status.started_at.isoformat().replace("+00:00", "Z")
+        == "2024-02-14T15:00:00Z"
     )
 
-    cancelled_call = await client.calls.cancel(UUID(call_uuid))
-    assert cancelled_call.status.state == "cancelled"
+    # Test end method
+    end_result = await client.calls.end(UUID(call_uuid))
+    assert end_result.status.state == "completed"
+    assert (
+        end_result.status.ended_at.isoformat().replace("+00:00", "Z")
+        == "2024-02-14T15:30:00Z"
+    )
+    assert end_result.status.duration == 1800
+
+    # Test cancel method
+    cancel_result = await client.calls.cancel(UUID(call_uuid))
+    assert cancel_result.status.state == "cancelled"
+
+    # Verify the mock was called with correct parameters
+    assert mock_request.call_count == 3
+    mock_request.assert_any_call("POST", f"/calls/{call_uuid}/start")
+    mock_request.assert_any_call("POST", f"/calls/{call_uuid}/end")
+    mock_request.assert_any_call("POST", f"/calls/{call_uuid}/cancel")

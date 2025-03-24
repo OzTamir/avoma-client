@@ -16,7 +16,7 @@ from .api.calls import CallsAPI
 class AvomaClient:
     """Base client for the Avoma API."""
 
-    BASE_URL = "https://api.avoma.com/v1"
+    BASE_URL = "https://api.avoma.com"
 
     def __init__(
         self,
@@ -29,7 +29,7 @@ class AvomaClient:
         Args:
             api_key: The API key for authentication
             base_url: Optional custom base URL for the API
-            session: Optional aiohttp ClientSession to use
+            session: Optional HTTP session to use
         """
         self.api_key = api_key
         self.base_url = URL(base_url or self.BASE_URL)

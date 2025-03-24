@@ -1,8 +1,8 @@
 import pytest
 from datetime import datetime, timezone
 from uuid import UUID
+from unittest.mock import AsyncMock
 
-from aioresponses import aioresponses
 from avoma import AvomaClient
 
 
@@ -11,14 +11,8 @@ def client():
     return AvomaClient("test-api-key")
 
 
-@pytest.fixture
-def mock_api():
-    with aioresponses() as m:
-        yield m
-
-
 @pytest.mark.asyncio
-async def test_list_meetings(client, mock_api):
+async def test_list_meetings():
     # Mock response data
     response_data = {
         "count": 1,
@@ -51,15 +45,18 @@ async def test_list_meetings(client, mock_api):
         ],
     }
 
-    # Mock the API call
-    mock_api.get(
-        "https://api.avoma.com/v1/meetings?from_date=2024-02-14T00%3A00%3A00Z&to_date=2024-02-14T23%3A59%3A59Z",
-        payload=response_data,
-    )
+    # Create client and mock _request method
+    client = AvomaClient("test-api-key")
+    client._request = AsyncMock(return_value=response_data)
 
     # Make the API call
-    meetings = await client.meetings.list(
-        from_date="2024-02-14T00:00:00Z", to_date="2024-02-14T23:59:59Z"
+    from_date = "2024-02-14T00:00:00Z"
+    to_date = "2024-02-14T23:59:59Z"
+    meetings = await client.meetings.list(from_date=from_date, to_date=to_date)
+
+    # Verify the request was made with correct parameters
+    client._request.assert_called_once_with(
+        "GET", "/meetings", params={"from_date": from_date, "to_date": to_date}
     )
 
     # Verify response
@@ -77,7 +74,7 @@ async def test_list_meetings(client, mock_api):
 
 
 @pytest.mark.asyncio
-async def test_get_meeting(client, mock_api):
+async def test_get_meeting():
     meeting_uuid = "123e4567-e89b-12d3-a456-426614174000"
     response_data = {
         "uuid": meeting_uuid,
@@ -96,18 +93,24 @@ async def test_get_meeting(client, mock_api):
         "transcript_ready": True,
     }
 
-    mock_api.get(
-        f"https://api.avoma.com/v1/meetings/{meeting_uuid}", payload=response_data
-    )
+    # Create client and mock _request method
+    client = AvomaClient("test-api-key")
+    client._request = AsyncMock(return_value=response_data)
 
+    # Make the API call
     meeting = await client.meetings.get(UUID(meeting_uuid))
+
+    # Verify the request was made with correct path
+    client._request.assert_called_once_with("GET", f"/meetings/{meeting_uuid}")
+
+    # Verify response
     assert meeting.uuid == UUID(meeting_uuid)
     assert meeting.subject == "Test Meeting"
     assert meeting.state == "completed"
 
 
 @pytest.mark.asyncio
-async def test_get_meeting_insights(client, mock_api):
+async def test_get_meeting_insights():
     meeting_uuid = "123e4567-e89b-12d3-a456-426614174000"
     response_data = {
         "ai_notes": [
@@ -131,12 +134,17 @@ async def test_get_meeting_insights(client, mock_api):
         ],
     }
 
-    mock_api.get(
-        f"https://api.avoma.com/v1/meetings/{meeting_uuid}/insights",
-        payload=response_data,
-    )
+    # Create client and mock _request method
+    client = AvomaClient("test-api-key")
+    client._request = AsyncMock(return_value=response_data)
 
+    # Make the API call
     insights = await client.meetings.get_insights(UUID(meeting_uuid))
+
+    # Verify the request was made with correct path
+    client._request.assert_called_once_with("GET", f"/meetings/{meeting_uuid}/insights")
+
+    # Verify response
     assert len(insights.ai_notes) == 1
     assert insights.ai_notes[0].note_type == "action_item"
     assert len(insights.speakers) == 1
@@ -144,20 +152,26 @@ async def test_get_meeting_insights(client, mock_api):
 
 
 @pytest.mark.asyncio
-async def test_get_meeting_sentiments(client, mock_api):
+async def test_get_meeting_sentiments():
     meeting_uuid = "123e4567-e89b-12d3-a456-426614174000"
     response_data = {
         "sentiment": 1,
         "sentiment_ranges": [{"score": 0.8, "time_range": [0.0, 10.0]}],
     }
 
-    mock_api.get(
-        "https://api.avoma.com/v1/meeting_sentiments",
-        payload=response_data,
-        params={"uuid": meeting_uuid},
+    # Create client and mock _request method
+    client = AvomaClient("test-api-key")
+    client._request = AsyncMock(return_value=response_data)
+
+    # Make the API call
+    sentiments = await client.meetings.get_sentiments(UUID(meeting_uuid))
+
+    # Verify the request was made with correct parameters
+    client._request.assert_called_once_with(
+        "GET", "/meeting_sentiments", params={"uuid": str(meeting_uuid)}
     )
 
-    sentiments = await client.meetings.get_sentiments(UUID(meeting_uuid))
+    # Verify response
     assert sentiments.sentiment == 1
     assert len(sentiments.sentiment_ranges) == 1
     assert sentiments.sentiment_ranges[0].score == 0.8
