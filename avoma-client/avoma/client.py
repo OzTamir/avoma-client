@@ -3,6 +3,10 @@ import aiohttp
 from yarl import URL
 
 from .api.meetings import MeetingsAPI
+from .api.recordings import RecordingsAPI
+from .api.transcriptions import TranscriptionsAPI
+from .api.smart_categories import SmartCategoriesAPI
+from .api.templates import TemplatesAPI
 
 
 class AvomaClient:
@@ -29,6 +33,10 @@ class AvomaClient:
 
         # Initialize API endpoints
         self.meetings = MeetingsAPI(self)
+        self.recordings = RecordingsAPI(self)
+        self.transcriptions = TranscriptionsAPI(self)
+        self.smart_categories = SmartCategoriesAPI(self)
+        self.templates = TemplatesAPI(self)
 
     async def __aenter__(self):
         return self
