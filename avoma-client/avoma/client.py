@@ -9,6 +9,8 @@ from .api.smart_categories import SmartCategoriesAPI
 from .api.templates import TemplatesAPI
 from .api.notes import NotesAPI
 from .api.sentiments import SentimentsAPI
+from .api.users import UsersAPI
+from .api.calls import CallsAPI
 
 
 class AvomaClient:
@@ -41,6 +43,8 @@ class AvomaClient:
         self.templates = TemplatesAPI(self)
         self.notes = NotesAPI(self)
         self.sentiments = SentimentsAPI(self)
+        self.users = UsersAPI(self)
+        self.calls = CallsAPI(self)
 
     async def __aenter__(self):
         return self

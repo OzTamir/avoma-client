@@ -10,65 +10,63 @@ async def main():
     # Get API key from environment variable
     api_key = os.getenv("AVOMA_API_KEY")
     if not api_key:
-        raise ValueError("AVOMA_API_KEY environment variable is required")
+        raise ValueError("AVOMA_API_KEY environment variable is not set")
 
-    # Create client
     async with AvomaClient(api_key) as client:
-        # Set date range for last 7 days
+        # List sentiment analyses from the past week
         to_date = datetime.utcnow()
         from_date = to_date - timedelta(days=7)
-
-        # List all meeting sentiments
         sentiments = await client.sentiments.list(
-            from_date=from_date.isoformat(), to_date=to_date.isoformat()
+            from_date=from_date.isoformat() + "Z",
+            to_date=to_date.isoformat() + "Z",
+            status="completed",  # Only get completed analyses
         )
-        print(f"\nFound {sentiments.count} sentiment analyses in the last 7 days:")
+        print(f"Found {sentiments.count} sentiment analyses in the past week")
+
+        # Print details of each sentiment analysis
         for sentiment in sentiments.results:
-            print(f"\nMeeting {sentiment.uuid}")
-            print(f"Overall sentiment: {sentiment.overall_sentiment.label}")
-            print(f"Score: {sentiment.overall_sentiment.score:.2f}")
-            print(f"Confidence: {sentiment.overall_sentiment.confidence:.2f}")
+            print(f"\nMeeting: {sentiment.meeting_uuid}")
+            print("Overall sentiment scores:")
+            print(f"  Positive: {sentiment.overall_scores.positive:.2%}")
+            print(f"  Neutral: {sentiment.overall_scores.neutral:.2%}")
+            print(f"  Negative: {sentiment.overall_scores.negative:.2%}")
 
-            # Print segments with strong sentiments (confidence > 0.9)
-            strong_segments = [
-                seg for seg in sentiment.segments if seg.sentiment.confidence > 0.9
-            ]
-            if strong_segments:
-                print("\nHighly confident sentiment segments:")
-                for segment in strong_segments:
-                    print(f"\nSpeaker: {segment.speaker}")
-                    print(f"Time: {segment.start_time:.1f}s - {segment.end_time:.1f}s")
-                    print(f"Text: {segment.text}")
-                    print(f"Sentiment: {segment.sentiment.label}")
-                    print(f"Score: {segment.sentiment.score:.2f}")
+            # Print segments with strong positive or negative sentiment
+            threshold = 0.7  # 70% confidence threshold
+            print("\nHighlight segments:")
+            for segment in sentiment.segments:
+                if segment.scores.positive >= threshold:
+                    print(f"\nPositive segment from {segment.speaker}:")
+                    print(f"  '{segment.text}'")
+                    print(f"  Time: {segment.start_time} - {segment.end_time}")
+                    print(f"  Score: {segment.scores.positive:.2%} positive")
+                elif segment.scores.negative >= threshold:
+                    print(f"\nNegative segment from {segment.speaker}:")
+                    print(f"  '{segment.text}'")
+                    print(f"  Time: {segment.start_time} - {segment.end_time}")
+                    print(f"  Score: {segment.scores.negative:.2%} negative")
 
-        # Get detailed sentiment analysis for a specific meeting
-        meeting_uuid = UUID(
-            "123e4567-e89b-12d3-a456-426614174000"
-        )  # Replace with actual UUID
+        # Request sentiment analysis for a specific meeting
+        meeting_uuid = UUID("123e4567-e89b-12d3-a456-426614174000")  # Example UUID
         try:
-            meeting_sentiment = await client.sentiments.get(meeting_uuid)
-            print(f"\nDetailed sentiment analysis for meeting {meeting_uuid}:")
-            print(f"Created: {meeting_sentiment.created}")
-            print(f"Overall sentiment: {meeting_sentiment.overall_sentiment.label}")
+            # Request analysis
+            sentiment = await client.sentiments.analyze(meeting_uuid)
+            print(f"\nRequested sentiment analysis for meeting {meeting_uuid}")
+            print(f"Status: {sentiment.status}")
 
-            # Group segments by speaker
-            segments_by_speaker = {}
-            for segment in meeting_sentiment.segments:
-                if segment.speaker not in segments_by_speaker:
-                    segments_by_speaker[segment.speaker] = []
-                segments_by_speaker[segment.speaker].append(segment)
-
-            # Print sentiment analysis by speaker
-            for speaker, segments in segments_by_speaker.items():
-                speaker_scores = [seg.sentiment.score for seg in segments]
-                avg_score = sum(speaker_scores) / len(speaker_scores)
-                print(f"\nSpeaker: {speaker}")
-                print(f"Average sentiment score: {avg_score:.2f}")
-                print(f"Number of segments: {len(segments)}")
-
+            # If the analysis is pending, we can get its current status
+            if sentiment.status == "pending":
+                updated_sentiment = await client.sentiments.get(meeting_uuid)
+                print(f"Current status: {updated_sentiment.status}")
+                if updated_sentiment.status == "completed":
+                    print("Analysis completed!")
+                    print(
+                        f"Overall positive sentiment: {updated_sentiment.overall_scores.positive:.2%}"
+                    )
+                elif updated_sentiment.status == "failed":
+                    print(f"Analysis failed: {updated_sentiment.error_message}")
         except Exception as e:
-            print(f"Error getting sentiment analysis: {e}")
+            print(f"Error analyzing meeting: {e}")
 
 
 if __name__ == "__main__":

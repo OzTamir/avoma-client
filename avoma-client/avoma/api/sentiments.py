@@ -1,7 +1,7 @@
 from typing import Optional
 from uuid import UUID
 
-from ..models.sentiments import MeetingSentiment, MeetingSentimentsList, SentimentsQuery
+from ..models.sentiments import MeetingSentiment, MeetingSentimentsList, SentimentQuery
 
 
 class SentimentsAPI:
@@ -12,26 +12,26 @@ class SentimentsAPI:
 
     async def list(
         self,
-        from_date: str,
-        to_date: str,
-        meeting_uuid: Optional[UUID] = None,
+        from_date: Optional[str] = None,
+        to_date: Optional[str] = None,
+        status: Optional[str] = None,
         page_size: Optional[int] = None,
     ) -> MeetingSentimentsList:
-        """List meeting sentiments with optional filters.
+        """List meeting sentiment analyses with optional filters.
 
         Args:
-            from_date: Start date-time in ISO format
-            to_date: End date-time in ISO format
-            meeting_uuid: Optional meeting UUID to filter by
-            page_size: Number of sentiments per page (max 20)
+            from_date: Optional start date-time in ISO format
+            to_date: Optional end date-time in ISO format
+            status: Optional status to filter by (pending, completed, failed)
+            page_size: Number of results per page (max 20)
 
         Returns:
-            Paginated list of meeting sentiments
+            Paginated list of meeting sentiment analyses
         """
-        query = SentimentsQuery(
+        query = SentimentQuery(
             from_date=from_date,
             to_date=to_date,
-            meeting_uuid=meeting_uuid,
+            status=status,
         )
 
         params = query.model_dump(exclude_none=True)
@@ -48,7 +48,19 @@ class SentimentsAPI:
             meeting_uuid: Meeting UUID
 
         Returns:
-            Meeting sentiment analysis
+            Meeting sentiment analysis details
         """
         data = await self.client._request("GET", f"/sentiments/{meeting_uuid}")
+        return MeetingSentiment.model_validate(data)
+
+    async def analyze(self, meeting_uuid: UUID) -> MeetingSentiment:
+        """Request sentiment analysis for a meeting.
+
+        Args:
+            meeting_uuid: UUID of the meeting to analyze
+
+        Returns:
+            Created sentiment analysis request (initially in pending state)
+        """
+        data = await self.client._request("POST", f"/sentiments/{meeting_uuid}/analyze")
         return MeetingSentiment.model_validate(data)
