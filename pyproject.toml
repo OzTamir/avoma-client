@@ -1,10 +1,12 @@
 [tool.poetry]
 name = "avoma-client"
 version = "0.1.0"
-description = "Python client for the Avoma API"
-authors = ["Your Name <your.email@example.com>"]
+description = "An unofficial Python client for the Avoma API"
+authors = ["Oz Tamir <oz@atamir.fun>"]
 readme = "README.md"
-packages = [{include = "avoma"}]
+license = "MIT"
+keywords = ["avoma", "api", "client"]
+repository = "https://github.com/oztamir/avoma-client"
 
 [tool.poetry.dependencies]
 python = "^3.11"
