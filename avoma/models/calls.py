@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import List, Optional
 from uuid import UUID
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 
 from .base import PaginatedResponse
 
@@ -12,7 +12,7 @@ class CallParticipant(BaseModel):
     uuid: UUID
     """Unique identifier for the participant"""
 
-    email: EmailStr
+    email: str
     """Participant's email address"""
 
     name: str
@@ -114,10 +114,10 @@ class CallCreate(BaseModel):
     scheduled_duration: int
     """Scheduled duration in minutes"""
 
-    host_email: EmailStr
+    host_email: str
     """Email of the call host"""
 
-    participant_emails: List[EmailStr]
+    participant_emails: List[str]
     """List of participant email addresses"""
 
     integration_type: Optional[str] = None
@@ -139,7 +139,7 @@ class CallUpdate(BaseModel):
     scheduled_duration: Optional[int] = None
     """Scheduled duration in minutes"""
 
-    participant_emails: Optional[List[EmailStr]] = None
+    participant_emails: Optional[List[str]] = None
     """List of participant email addresses"""
 
 
@@ -152,10 +152,10 @@ class CallsQuery(BaseModel):
     to_date: str
     """End date-time in ISO format to filter calls by"""
 
-    host_email: Optional[EmailStr] = None
+    host_email: Optional[str] = None
     """Filter calls by host email"""
 
-    participant_email: Optional[EmailStr] = None
+    participant_email: Optional[str] = None
     """Filter calls by participant email"""
 
     status: Optional[str] = None

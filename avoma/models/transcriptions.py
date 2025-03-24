@@ -1,12 +1,12 @@
 from typing import List, Optional
 from uuid import UUID
-from pydantic import BaseModel, EmailStr, HttpUrl
+from pydantic import BaseModel, HttpUrl
 
 
 class Speaker(BaseModel):
     """Model for speaker information in a transcription."""
 
-    email: EmailStr
+    email: str
     """Email address of the speaker"""
 
     id: int

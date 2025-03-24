@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import List, Optional
 from uuid import UUID
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 
 from .base import PaginatedResponse
 
@@ -25,7 +25,7 @@ class User(BaseModel):
     uuid: UUID
     """Unique identifier for the user"""
 
-    email: EmailStr
+    email: str
     """User's email address"""
 
     first_name: str
@@ -68,7 +68,7 @@ class UsersList(PaginatedResponse[User]):
 class UserCreate(BaseModel):
     """Model for creating a new user."""
 
-    email: EmailStr
+    email: str
     """User's email address"""
 
     first_name: str

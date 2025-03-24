@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import List, Optional
 from uuid import UUID
-from pydantic import BaseModel, EmailStr, HttpUrl
+from pydantic import BaseModel, HttpUrl
 
 from .base import MeetingAttribute, PaginatedResponse
 
@@ -9,7 +9,7 @@ from .base import MeetingAttribute, PaginatedResponse
 class Attendee(BaseModel):
     """Model for meeting attendee information."""
 
-    email: EmailStr
+    email: str
     """Email address of the attendee"""
 
     name: Optional[str] = None
@@ -56,7 +56,7 @@ class Meeting(BaseModel):
     is_internal: bool
     """Whether the meeting has only internal attendees"""
 
-    organizer_email: EmailStr
+    organizer_email: str
     """Email of the meeting organizer"""
 
     state: str
@@ -156,7 +156,7 @@ class MeetingSentiment(BaseModel):
 class Speaker(BaseModel):
     """Model for speaker information."""
 
-    email: EmailStr
+    email: str
     """Email address of the speaker"""
 
     id: int

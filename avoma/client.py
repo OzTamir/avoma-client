@@ -16,7 +16,7 @@ from .api.calls import CallsAPI
 class AvomaClient:
     """Base client for the Avoma API."""
 
-    BASE_URL = "https://api.avoma.com"
+    BASE_URL = "https://api.avoma.com/v1"
 
     def __init__(
         self,
@@ -29,10 +29,10 @@ class AvomaClient:
         Args:
             api_key: The API key for authentication
             base_url: Optional custom base URL for the API
-            session: Optional HTTP session to use
+            session: Optional aiohttp ClientSession to use
         """
         self.api_key = api_key
-        self.base_url = URL(base_url or self.BASE_URL)
+        self.base_url = base_url or self.BASE_URL
         self._session = session
 
         # Initialize API endpoints
@@ -88,7 +88,7 @@ class AvomaClient:
         Raises:
             aiohttp.ClientError: If the request fails
         """
-        url = self.base_url.join(URL(path.lstrip("/")))
+        url = f"{self.base_url}/{path.lstrip('/')}/"
 
         async with self.session.request(
             method=method,
@@ -96,5 +96,6 @@ class AvomaClient:
             params=params,
             json=json,
         ) as response:
+            json_response = await response.json()
             response.raise_for_status()
-            return await response.json() if response.content_length else {}
+            return json_response

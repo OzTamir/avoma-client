@@ -47,7 +47,7 @@ class MeetingsAPI:
         if recording_duration__gte is not None:
             params["recording_duration__gte"] = recording_duration__gte
 
-        data = await self.client._request("GET", "/meetings", params=params)
+        data = await self.client._request("GET", "meetings", params=params)
         return MeetingList.model_validate(data)
 
     async def get(self, uuid: UUID) -> Meeting:
@@ -59,7 +59,7 @@ class MeetingsAPI:
         Returns:
             Meeting details
         """
-        data = await self.client._request("GET", f"/meetings/{uuid}")
+        data = await self.client._request("GET", f"meetings/{uuid}")
         return Meeting.model_validate(data)
 
     async def get_insights(self, uuid: UUID) -> MeetingInsights:
@@ -71,7 +71,7 @@ class MeetingsAPI:
         Returns:
             Meeting insights including AI notes and keywords
         """
-        data = await self.client._request("GET", f"/meetings/{uuid}/insights")
+        data = await self.client._request("GET", f"meetings/{uuid}/insights")
         return MeetingInsights.model_validate(data)
 
     async def get_sentiments(self, uuid: UUID) -> MeetingSentiment:
@@ -84,8 +84,11 @@ class MeetingsAPI:
             Meeting sentiment analysis
         """
         data = await self.client._request(
-            "GET", f"/meeting_sentiments", params={"uuid": str(uuid)}
+            "GET", "meeting_sentiments", params={"uuid": str(uuid)}
         )
+        # Check if data is a list and take the first item if it is
+        if isinstance(data, list) and data:
+            data = data[0]
         return MeetingSentiment.model_validate(data)
 
     async def drop(self, uuid: UUID) -> dict:
@@ -97,4 +100,4 @@ class MeetingsAPI:
         Returns:
             Response message
         """
-        return await self.client._request("POST", f"/meetings/{uuid}/drop/")
+        return await self.client._request("POST", f"meetings/{uuid}/drop/")

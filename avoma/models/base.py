@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Generic, List, Optional, TypeVar
 from uuid import UUID
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 
 T = TypeVar("T")
 
@@ -25,7 +25,7 @@ class PaginatedResponse(BaseModel, Generic[T]):
 class User(BaseModel):
     """Base model for user information."""
 
-    email: EmailStr
+    email: str
     """Email address of the user"""
 
     first_name: str

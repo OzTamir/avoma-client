@@ -1,8 +1,8 @@
 import pytest
 from datetime import datetime
 from uuid import UUID
+from unittest.mock import AsyncMock
 
-from aioresponses import aioresponses
 from avoma import AvomaClient
 from avoma.models.smart_categories import SmartCategoryCreate, SmartCategoryUpdate
 
@@ -12,14 +12,8 @@ def client():
     return AvomaClient("test-api-key")
 
 
-@pytest.fixture
-def mock_api():
-    with aioresponses() as m:
-        yield m
-
-
 @pytest.mark.asyncio
-async def test_list_smart_categories(client, mock_api):
+async def test_list_smart_categories():
     response_data = {
         "count": 1,
         "next": None,
@@ -61,9 +55,16 @@ async def test_list_smart_categories(client, mock_api):
         ],
     }
 
-    mock_api.get("https://api.avoma.com/v1/smart_categories", payload=response_data)
+    # Create client and mock _request method
+    client = AvomaClient("test-api-key")
+    client._request = AsyncMock(return_value=response_data)
 
     categories = await client.smart_categories.list()
+
+    # Verify request was made with correct parameters
+    client._request.assert_called_once_with("GET", "/smart_categories")
+
+    # Verify response
     assert len(categories) == 1
 
     category = categories[0]
@@ -75,7 +76,7 @@ async def test_list_smart_categories(client, mock_api):
 
 
 @pytest.mark.asyncio
-async def test_get_smart_category(client, mock_api):
+async def test_get_smart_category():
     category_uuid = "123e4567-e89b-12d3-a456-426614174000"
     response_data = {
         "uuid": category_uuid,
@@ -94,19 +95,23 @@ async def test_get_smart_category(client, mock_api):
         },
     }
 
-    mock_api.get(
-        f"https://api.avoma.com/v1/smart_categories/{category_uuid}",
-        payload=response_data,
-    )
+    # Create client and mock _request method
+    client = AvomaClient("test-api-key")
+    client._request = AsyncMock(return_value=response_data)
 
     category = await client.smart_categories.get(UUID(category_uuid))
+
+    # Verify request was made with correct parameters
+    client._request.assert_called_once_with("GET", f"/smart_categories/{category_uuid}")
+
+    # Verify response
     assert category.uuid == UUID(category_uuid)
     assert category.name == "Test Category"
     assert category.settings.prompt_extract_length == "medium"
 
 
 @pytest.mark.asyncio
-async def test_create_smart_category(client, mock_api):
+async def test_create_smart_category():
     new_category = SmartCategoryCreate(
         name="New Category",
         keywords=["keyword1", "keyword2"],
@@ -131,15 +136,24 @@ async def test_create_smart_category(client, mock_api):
         "settings": new_category.settings.model_dump(),
     }
 
-    mock_api.post("https://api.avoma.com/v1/smart_categories", payload=response_data)
+    # Create client and mock _request method
+    client = AvomaClient("test-api-key")
+    client._request = AsyncMock(return_value=response_data)
 
     category = await client.smart_categories.create(new_category)
+
+    # Verify request was made with correct parameters
+    client._request.assert_called_once_with(
+        "POST", "/smart_categories", json=new_category.model_dump(exclude_none=True)
+    )
+
+    # Verify response
     assert category.name == "New Category"
     assert category.settings.prompt_extract_length == "medium"
 
 
 @pytest.mark.asyncio
-async def test_update_smart_category(client, mock_api):
+async def test_update_smart_category():
     category_uuid = "123e4567-e89b-12d3-a456-426614174000"
     update_data = SmartCategoryUpdate(
         keywords=["updated_keyword"],
@@ -164,12 +178,20 @@ async def test_update_smart_category(client, mock_api):
         "settings": update_data.settings.model_dump(),
     }
 
-    mock_api.patch(
-        f"https://api.avoma.com/v1/smart_categories/{category_uuid}",
-        payload=response_data,
-    )
+    # Create client and mock _request method
+    client = AvomaClient("test-api-key")
+    client._request = AsyncMock(return_value=response_data)
 
     category = await client.smart_categories.update(UUID(category_uuid), update_data)
+
+    # Verify request was made with correct parameters
+    client._request.assert_called_once_with(
+        "PATCH",
+        f"/smart_categories/{category_uuid}",
+        json=update_data.model_dump(exclude_none=True),
+    )
+
+    # Verify response
     assert category.uuid == UUID(category_uuid)
     assert category.settings.prompt_extract_length == "short"
     assert category.settings.aug_notes_enabled is False

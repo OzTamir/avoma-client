@@ -1,8 +1,8 @@
 import pytest
 from datetime import datetime
 from uuid import UUID
+from unittest.mock import AsyncMock
 
-from aioresponses import aioresponses
 from avoma import AvomaClient
 from avoma.models.users import UserCreate, UserUpdate
 
@@ -12,14 +12,8 @@ def client():
     return AvomaClient("test-api-key")
 
 
-@pytest.fixture
-def mock_api():
-    with aioresponses() as m:
-        yield m
-
-
 @pytest.mark.asyncio
-async def test_list_users(client, mock_api):
+async def test_list_users():
     response_data = {
         "count": 1,
         "next": None,
@@ -46,13 +40,16 @@ async def test_list_users(client, mock_api):
         ],
     }
 
-    mock_api.get(
-        "https://api.avoma.com/v1/users",
-        payload=response_data,
-    )
+    # Create client and mock _request method
+    client = AvomaClient("test-api-key")
+    client._request = AsyncMock(return_value=response_data)
 
     users = await client.users.list()
 
+    # Verify request was made with correct parameters
+    client._request.assert_called_once_with("GET", "/users", params={})
+
+    # Verify response
     assert users.count == 1
     assert len(users.results) == 1
     user = users.results[0]
@@ -65,7 +62,7 @@ async def test_list_users(client, mock_api):
 
 
 @pytest.mark.asyncio
-async def test_get_user(client, mock_api):
+async def test_get_user():
     user_uuid = "123e4567-e89b-12d3-a456-426614174000"
     response_data = {
         "uuid": user_uuid,
@@ -83,13 +80,16 @@ async def test_get_user(client, mock_api):
         "timezone": "Europe/London",
     }
 
-    mock_api.get(
-        f"https://api.avoma.com/v1/users/{user_uuid}",
-        payload=response_data,
-    )
+    # Create client and mock _request method
+    client = AvomaClient("test-api-key")
+    client._request = AsyncMock(return_value=response_data)
 
     user = await client.users.get(UUID(user_uuid))
 
+    # Verify request was made with correct parameters
+    client._request.assert_called_once_with("GET", f"/users/{user_uuid}")
+
+    # Verify response
     assert str(user.uuid) == user_uuid
     assert user.email == "jane.smith@example.com"
     assert user.role.name == "User"
@@ -97,7 +97,7 @@ async def test_get_user(client, mock_api):
 
 
 @pytest.mark.asyncio
-async def test_create_user(client, mock_api):
+async def test_create_user():
     role_uuid = "123e4567-e89b-12d3-a456-426614174001"
     user_data = UserCreate(
         email="new.user@example.com",
@@ -125,13 +125,18 @@ async def test_create_user(client, mock_api):
         "department": user_data.department,
     }
 
-    mock_api.post(
-        "https://api.avoma.com/v1/users",
-        payload=response_data,
-    )
+    # Create client and mock _request method
+    client = AvomaClient("test-api-key")
+    client._request = AsyncMock(return_value=response_data)
 
     user = await client.users.create(user_data)
 
+    # Verify request was made with correct parameters
+    client._request.assert_called_once_with(
+        "POST", "/users", json=user_data.model_dump(exclude_none=True)
+    )
+
+    # Verify response
     assert user.email == user_data.email
     assert user.first_name == user_data.first_name
     assert user.department == user_data.department
@@ -139,7 +144,7 @@ async def test_create_user(client, mock_api):
 
 
 @pytest.mark.asyncio
-async def test_update_user(client, mock_api):
+async def test_update_user():
     user_uuid = "123e4567-e89b-12d3-a456-426614174000"
     update_data = UserUpdate(
         first_name="Updated",
@@ -163,13 +168,18 @@ async def test_update_user(client, mock_api):
         "department": update_data.department,
     }
 
-    mock_api.put(
-        f"https://api.avoma.com/v1/users/{user_uuid}",
-        payload=response_data,
-    )
+    # Create client and mock _request method
+    client = AvomaClient("test-api-key")
+    client._request = AsyncMock(return_value=response_data)
 
     user = await client.users.update(UUID(user_uuid), update_data)
 
+    # Verify request was made with correct parameters
+    client._request.assert_called_once_with(
+        "PUT", f"/users/{user_uuid}", json=update_data.model_dump(exclude_none=True)
+    )
+
+    # Verify response
     assert str(user.uuid) == user_uuid
     assert user.first_name == update_data.first_name
     assert user.department == update_data.department
@@ -177,19 +187,21 @@ async def test_update_user(client, mock_api):
 
 
 @pytest.mark.asyncio
-async def test_delete_user(client, mock_api):
+async def test_delete_user():
     user_uuid = "123e4567-e89b-12d3-a456-426614174000"
 
-    mock_api.delete(
-        f"https://api.avoma.com/v1/users/{user_uuid}",
-        status=204,
-    )
+    # Create client and mock _request method
+    client = AvomaClient("test-api-key")
+    client._request = AsyncMock(return_value=None)
 
     await client.users.delete(UUID(user_uuid))
 
+    # Verify request was made with correct parameters
+    client._request.assert_called_once_with("DELETE", f"/users/{user_uuid}")
+
 
 @pytest.mark.asyncio
-async def test_get_current_user(client, mock_api):
+async def test_get_current_user():
     response_data = {
         "uuid": "123e4567-e89b-12d3-a456-426614174000",
         "email": "current.user@example.com",
@@ -205,13 +217,16 @@ async def test_get_current_user(client, mock_api):
         "is_active": True,
     }
 
-    mock_api.get(
-        "https://api.avoma.com/v1/users/me",
-        payload=response_data,
-    )
+    # Create client and mock _request method
+    client = AvomaClient("test-api-key")
+    client._request = AsyncMock(return_value=response_data)
 
     user = await client.users.get_current()
 
+    # Verify request was made with correct parameters
+    client._request.assert_called_once_with("GET", "/users/me")
+
+    # Verify response
     assert user.email == "current.user@example.com"
     assert user.role.name == "Admin"
     assert "admin" in user.role.permissions

@@ -38,7 +38,9 @@ async def main():
 
                 # Get sentiment analysis
                 sentiment = await client.meetings.get_sentiments(meeting.uuid)
-                print(f"\nOverall sentiment: {sentiment.sentiment}")
+                print(
+                    f"\nOverall sentiment: {getattr(sentiment, 'sentiment_score', getattr(sentiment, 'sentiment', 'N/A'))}"
+                )
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 from typing import List, Optional
 from uuid import UUID
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 
 
 class MeetingType(BaseModel):
@@ -34,7 +34,7 @@ class Template(BaseModel):
     text_slate: str
     """JSON string containing the template structure"""
 
-    email: Optional[EmailStr] = None
+    email: Optional[str] = None
     """Email of the template owner"""
 
 
@@ -50,7 +50,7 @@ class TemplateCreate(BaseModel):
     meeting_type_uuids: List[UUID]
     """List of meeting type UUIDs this template applies to"""
 
-    email: Optional[EmailStr] = None
+    email: Optional[str] = None
     """Email of the template owner (defaults to oldest admin if not provided)"""
 
 
