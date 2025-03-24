@@ -1,6 +1,6 @@
 # Avoma Python Client
 
-An async Python client for the [Avoma API](https://api.avoma.com/docs).
+An unofficial async Python client for the [Avoma API](https://api.avoma.com/docs).
 
 ## Installation
 

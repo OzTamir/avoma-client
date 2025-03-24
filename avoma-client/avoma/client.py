@@ -7,6 +7,7 @@ from .api.recordings import RecordingsAPI
 from .api.transcriptions import TranscriptionsAPI
 from .api.smart_categories import SmartCategoriesAPI
 from .api.templates import TemplatesAPI
+from .api.notes import NotesAPI
 
 
 class AvomaClient:
@@ -37,6 +38,7 @@ class AvomaClient:
         self.transcriptions = TranscriptionsAPI(self)
         self.smart_categories = SmartCategoriesAPI(self)
         self.templates = TemplatesAPI(self)
+        self.notes = NotesAPI(self)
 
     async def __aenter__(self):
         return self
