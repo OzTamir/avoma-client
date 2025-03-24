@@ -9,6 +9,7 @@ class CallsAPI:
 
     def __init__(self, client):
         self.client = client
+        self.client.logger.debug("CallsAPI initialized")
 
     async def list(
         self,
@@ -32,6 +33,15 @@ class CallsAPI:
         Returns:
             Paginated list of calls
         """
+        self.client.logger.debug(f"Listing calls from {from_date} to {to_date}")
+
+        if host_email:
+            self.client.logger.debug(f"Filtering by host: {host_email}")
+        if participant_email:
+            self.client.logger.debug(f"Filtering by participant: {participant_email}")
+        if status:
+            self.client.logger.debug(f"Filtering by status: {status}")
+
         query = CallsQuery(
             from_date=from_date,
             to_date=to_date,
@@ -45,7 +55,9 @@ class CallsAPI:
             params["page_size"] = page_size
 
         data = await self.client._request("GET", "/calls", params=params)
-        return CallsList.model_validate(data)
+        calls_list = CallsList.model_validate(data)
+        self.client.logger.debug(f"Retrieved {len(calls_list.results)} calls")
+        return calls_list
 
     async def get(self, call_uuid: UUID) -> Call:
         """Get a specific call by UUID.
@@ -56,8 +68,11 @@ class CallsAPI:
         Returns:
             Call details
         """
+        self.client.logger.debug(f"Getting call with UUID: {call_uuid}")
         data = await self.client._request("GET", f"/calls/{call_uuid}")
-        return Call.model_validate(data)
+        call = Call.model_validate(data)
+        self.client.logger.debug(f"Retrieved call: {call_uuid}")
+        return call
 
     async def create(self, call: CallCreate) -> Call:
         """Create a new call.
@@ -68,10 +83,13 @@ class CallsAPI:
         Returns:
             Created call
         """
+        self.client.logger.debug("Creating new call")
         data = await self.client._request(
             "POST", "/calls", json=call.model_dump(exclude_unset=True)
         )
-        return Call.model_validate(data)
+        created_call = Call.model_validate(data)
+        self.client.logger.debug(f"Created call with UUID: {created_call.uuid}")
+        return created_call
 
     async def update(self, call_uuid: UUID, call: CallUpdate) -> Call:
         """Update an existing call.
@@ -83,10 +101,13 @@ class CallsAPI:
         Returns:
             Updated call
         """
+        self.client.logger.debug(f"Updating call with UUID: {call_uuid}")
         data = await self.client._request(
             "PUT", f"/calls/{call_uuid}", json=call.model_dump(exclude_unset=True)
         )
-        return Call.model_validate(data)
+        updated_call = Call.model_validate(data)
+        self.client.logger.debug(f"Updated call: {call_uuid}")
+        return updated_call
 
     async def cancel(self, call_uuid: UUID) -> Call:
         """Cancel a call.
@@ -97,8 +118,11 @@ class CallsAPI:
         Returns:
             Updated call with cancelled status
         """
+        self.client.logger.debug(f"Cancelling call with UUID: {call_uuid}")
         data = await self.client._request("POST", f"/calls/{call_uuid}/cancel")
-        return Call.model_validate(data)
+        cancelled_call = Call.model_validate(data)
+        self.client.logger.debug(f"Call {call_uuid} cancelled")
+        return cancelled_call
 
     async def start(self, call_uuid: UUID) -> Call:
         """Start a call.
@@ -109,8 +133,11 @@ class CallsAPI:
         Returns:
             Updated call with in_progress status
         """
+        self.client.logger.debug(f"Starting call with UUID: {call_uuid}")
         data = await self.client._request("POST", f"/calls/{call_uuid}/start")
-        return Call.model_validate(data)
+        started_call = Call.model_validate(data)
+        self.client.logger.debug(f"Call {call_uuid} started")
+        return started_call
 
     async def end(self, call_uuid: UUID) -> Call:
         """End a call.
@@ -121,5 +148,8 @@ class CallsAPI:
         Returns:
             Updated call with completed status
         """
+        self.client.logger.debug(f"Ending call with UUID: {call_uuid}")
         data = await self.client._request("POST", f"/calls/{call_uuid}/end")
-        return Call.model_validate(data)
+        ended_call = Call.model_validate(data)
+        self.client.logger.debug(f"Call {call_uuid} ended")
+        return ended_call

@@ -9,6 +9,7 @@ class SentimentsAPI:
 
     def __init__(self, client):
         self.client = client
+        self.client.logger.debug("SentimentsAPI initialized")
 
     async def list(
         self,
@@ -28,6 +29,13 @@ class SentimentsAPI:
         Returns:
             Paginated list of meeting sentiment analyses
         """
+        self.client.logger.debug("Listing meeting sentiments")
+
+        if from_date and to_date:
+            self.client.logger.debug(f"Date range: {from_date} to {to_date}")
+        if status:
+            self.client.logger.debug(f"Filtering by status: {status}")
+
         query = SentimentQuery(
             from_date=from_date,
             to_date=to_date,
@@ -39,7 +47,11 @@ class SentimentsAPI:
             params["page_size"] = page_size
 
         data = await self.client._request("GET", "/sentiments", params=params)
-        return MeetingSentimentsList.model_validate(data)
+        sentiments = MeetingSentimentsList.model_validate(data)
+        self.client.logger.debug(
+            f"Retrieved {len(sentiments.results)} sentiment analyses"
+        )
+        return sentiments
 
     async def get(self, meeting_uuid: UUID) -> MeetingSentiment:
         """Get sentiment analysis for a specific meeting.
@@ -50,8 +62,15 @@ class SentimentsAPI:
         Returns:
             Meeting sentiment analysis details
         """
+        self.client.logger.debug(
+            f"Getting sentiment analysis for meeting: {meeting_uuid}"
+        )
         data = await self.client._request("GET", f"/sentiments/{meeting_uuid}")
-        return MeetingSentiment.model_validate(data)
+        sentiment = MeetingSentiment.model_validate(data)
+        self.client.logger.debug(
+            f"Retrieved sentiment analysis for meeting: {meeting_uuid}"
+        )
+        return sentiment
 
     async def analyze(self, meeting_uuid: UUID) -> MeetingSentiment:
         """Request sentiment analysis for a meeting.
@@ -62,5 +81,12 @@ class SentimentsAPI:
         Returns:
             Created sentiment analysis request (initially in pending state)
         """
+        self.client.logger.debug(
+            f"Requesting sentiment analysis for meeting: {meeting_uuid}"
+        )
         data = await self.client._request("POST", f"/sentiments/{meeting_uuid}/analyze")
-        return MeetingSentiment.model_validate(data)
+        sentiment = MeetingSentiment.model_validate(data)
+        self.client.logger.debug(
+            f"Sentiment analysis requested for meeting: {meeting_uuid}"
+        )
+        return sentiment

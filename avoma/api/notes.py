@@ -9,6 +9,7 @@ class NotesAPI:
 
     def __init__(self, client):
         self.client = client
+        self.client.logger.debug("NotesAPI initialized")
 
     async def list(
         self,
@@ -32,6 +33,13 @@ class NotesAPI:
         Returns:
             Paginated list of notes
         """
+        self.client.logger.debug(f"Listing notes from {from_date} to {to_date}")
+
+        if meeting_uuid:
+            self.client.logger.debug(f"Filtering by meeting UUID: {meeting_uuid}")
+        if custom_category:
+            self.client.logger.debug(f"Filtering by custom category: {custom_category}")
+
         query = NotesQuery(
             from_date=from_date,
             to_date=to_date,
@@ -45,4 +53,6 @@ class NotesAPI:
             params["page_size"] = page_size
 
         data = await self.client._request("GET", "/notes", params=params)
-        return NotesList.model_validate(data)
+        notes_list = NotesList.model_validate(data)
+        self.client.logger.debug(f"Retrieved {len(notes_list.notes)} notes")
+        return notes_list

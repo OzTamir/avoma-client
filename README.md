@@ -45,11 +45,56 @@ async def main():
 asyncio.run(main())
 ```
 
+## Logging
+
+The client includes built-in logging functionality. You can configure logging directly through the client:
+
+```python
+import logging
+from avoma import AvomaClient
+
+# Set log level directly in the client constructor
+client = AvomaClient(
+    api_key="your-api-key",
+    log_level=logging.DEBUG,
+    logger_name="my-app.avoma"  # Optional custom logger name
+)
+```
+
+For more advanced logging configuration:
+
+```python
+import logging
+import sys
+from avoma import AvomaClient, create_logger
+
+# Create a client with custom logging
+client = AvomaClient("your-api-key", log_level=logging.DEBUG)
+
+# Customize the logger with a specific handler if needed
+handler = logging.FileHandler("avoma.log")
+handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s: %(message)s"))
+
+# Replace default handler with custom one
+for h in client.logger.handlers:
+    client.logger.removeHandler(h)
+client.logger.addHandler(handler)
+```
+
+The logs include:
+
+- API request and response details (with sensitive data redacted)
+- Client lifecycle events
+- API call information
+
+This is useful for debugging API interactions and understanding the client's behavior.
+
 ## Features
 
 - Fully async API using aiohttp
 - Type hints and Pydantic models for all responses
 - Comprehensive test coverage
+- Detailed logging for debugging
 - Support for all Avoma API endpoints:
   - Meetings
   - Recordings
