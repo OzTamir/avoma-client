@@ -7,6 +7,9 @@ readme = "README.md"
 license = "MIT"
 keywords = ["avoma", "api", "client"]
 repository = "https://github.com/oztamir/avoma-client"
+packages = [
+    { include = "avoma" }
+]
 
 [tool.poetry.dependencies]
 python = "^3.11"
