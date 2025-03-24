@@ -1,7 +1,7 @@
 import pytest
 from datetime import datetime, timezone
 from uuid import UUID
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, call
 
 from avoma import AvomaClient
 
@@ -48,7 +48,7 @@ async def test_list_meetings():
     # Mock response data for second page
     second_page_data = {
         "count": 2,
-        "next": None,
+        "next": "https://api.avoma.com/v1/meetings/?page=3",
         "previous": "https://api.avoma.com/v1/meetings/?page=1",
         "results": [
             {
@@ -70,10 +70,35 @@ async def test_list_meetings():
         ],
     }
 
+    # Mock response data for third page
+    third_page_data = {
+        "count": 2,
+        "next": None,
+        "previous": "https://api.avoma.com/v1/meetings/?page=2",
+        "results": [
+            {
+                "uuid": "323e4567-e89b-12d3-a456-426614174000",
+                "subject": "Test Meeting 3",
+                "created": "2024-02-14T14:00:00Z",
+                "modified": "2024-02-14T14:00:00Z",
+                "is_private": False,
+                "is_internal": True,
+                "organizer_email": "test3@example.com",
+                "state": "completed",
+                "attendees": [],
+                "audio_ready": True,
+                "video_ready": True,
+                "is_call": False,
+                "notes_ready": True,
+                "transcript_ready": True,
+            }
+        ],
+    }
+
     # Create client and mock _request method
     client = AvomaClient("test-api-key")
     mock_request = AsyncMock()
-    mock_request.side_effect = [first_page_data, second_page_data]
+    mock_request.side_effect = [first_page_data, second_page_data, third_page_data]
     client._request = mock_request
 
     # Test without pagination
@@ -101,7 +126,7 @@ async def test_list_meetings():
 
     # Reset mock
     mock_request.reset_mock()
-    mock_request.side_effect = [first_page_data, second_page_data]
+    mock_request.side_effect = [first_page_data, second_page_data, third_page_data]
 
     # Test with pagination
     meetings = await client.meetings.list(
@@ -110,28 +135,93 @@ async def test_list_meetings():
         follow_pagination=True,
     )
 
-    # Verify both pages were requested
+    # Verify all pages were requested in the correct order
+    assert mock_request.call_count == 3
+    assert mock_request.call_args_list == [
+        call(
+            "GET",
+            "meetings",
+            params={
+                "from_date": from_date,
+                "to_date": to_date,
+                "page_size": 100,
+            },
+        ),
+        call(
+            "GET",
+            "meetings",
+            params={
+                "from_date": from_date,
+                "to_date": to_date,
+                "page_size": 100,
+                "page": 2,
+            },
+        ),
+        call(
+            "GET",
+            "meetings",
+            params={
+                "from_date": from_date,
+                "to_date": to_date,
+                "page_size": 100,
+                "page": 3,
+            },
+        ),
+    ]
+
+    # Verify combined response
+    assert meetings.count == 2
+    assert meetings.next is None
+    assert meetings.previous is None
+    assert len(meetings.results) == 3
+    assert meetings.results[0].subject == "Test Meeting 1"
+    assert meetings.results[1].subject == "Test Meeting 2"
+    assert meetings.results[2].subject == "Test Meeting 3"
+
+    # Reset mock
+    mock_request.reset_mock()
+    mock_request.side_effect = [second_page_data, third_page_data]
+
+    # Test with specific page range (pages 2-3)
+    meetings = await client.meetings.list(
+        from_date=from_date,
+        to_date=to_date,
+        from_page=2,
+        to_page=3,
+    )
+
+    # Verify correct pages were requested in order
     assert mock_request.call_count == 2
-    mock_request.assert_any_call(
-        "GET",
-        "meetings",
-        params={
-            "from_date": from_date,
-            "to_date": to_date,
-            "page_size": 100,  # Default page size should be included
-        },
-    )
-    mock_request.assert_any_call(
-        "GET", "", full_url="https://api.avoma.com/v1/meetings/?page=2"
-    )
+    assert mock_request.call_args_list == [
+        call(
+            "GET",
+            "meetings",
+            params={
+                "from_date": from_date,
+                "to_date": to_date,
+                "page_size": 100,
+                "page": 2,
+            },
+        ),
+        call(
+            "GET",
+            "meetings",
+            params={
+                "from_date": from_date,
+                "to_date": to_date,
+                "page_size": 100,
+                "page": 3,
+            },
+        ),
+    ]
 
     # Verify combined response
     assert meetings.count == 2
     assert meetings.next is None
     assert meetings.previous is None
     assert len(meetings.results) == 2
-    assert meetings.results[0].subject == "Test Meeting 1"
-    assert meetings.results[1].subject == "Test Meeting 2"
+    assert meetings.results[0].subject == "Test Meeting 2"
+    assert meetings.results[1].subject == "Test Meeting 3"
 
 
 @pytest.mark.asyncio

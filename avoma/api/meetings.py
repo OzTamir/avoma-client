@@ -22,6 +22,8 @@ class MeetingsAPI:
         is_internal: Optional[bool] = None,
         recording_duration__gte: Optional[float] = None,
         follow_pagination: bool = False,
+        from_page: Optional[int] = None,
+        to_page: Optional[int] = None,
     ) -> MeetingList:
         """List meetings with optional filters.
 
@@ -33,9 +35,12 @@ class MeetingsAPI:
             is_internal: Filter for internal meetings
             recording_duration__gte: Minimum recording duration
             follow_pagination: If True, will fetch all pages
+            from_page: Start from this page number (1-based)
+            to_page: Stop at this page number (inclusive)
 
         Returns:
-            Paginated list of meetings. If follow_pagination is True, will contain all meetings.
+            Paginated list of meetings. If follow_pagination is True or page range is specified,
+            will contain all meetings from the requested pages.
         """
         self.client.logger.debug(f"Listing meetings from {from_date} to {to_date}")
         params = {
@@ -51,31 +56,57 @@ class MeetingsAPI:
         if recording_duration__gte is not None:
             params["recording_duration__gte"] = recording_duration__gte
 
+        # Determine the starting page
+        current_page = from_page if from_page else 1
+
+        # Only include page parameter if we're not starting from page 1
+        first_params = params.copy()
+        if current_page > 1:
+            first_params["page"] = current_page
+
         # Get first page
-        data = await self.client._request("GET", "meetings", params=params)
+        data = await self.client._request("GET", "meetings", params=first_params)
         meeting_list = MeetingList.model_validate(data)
         self.client.logger.debug(f"Retrieved {len(meeting_list.results)} meetings")
 
-        # If follow_pagination is True and there are more pages, fetch them
-        if follow_pagination and meeting_list.next:
+        # Determine if we should continue fetching pages
+        should_continue = (follow_pagination and meeting_list.next) or (
+            to_page and current_page < to_page
+        )
+
+        if should_continue:
             all_results = meeting_list.results
             total_count = (
                 meeting_list.count
             )  # Keep track of total count from first response
+            current_page += 1
 
-            while meeting_list.next:
-                # Use the next URL directly
-                data = await self.client._request("GET", "", full_url=meeting_list.next)
+            while meeting_list.next and (not to_page or current_page <= to_page):
+                # Add page parameter for subsequent requests
+                params_with_page = params.copy()
+                params_with_page["page"] = current_page
+
+                data = await self.client._request(
+                    "GET", "meetings", params=params_with_page
+                )
                 meeting_list = MeetingList.model_validate(data)
                 all_results.extend(meeting_list.results)
                 self.client.logger.debug(
                     f"Retrieved {len(meeting_list.results)} more meetings"
                 )
+                current_page += 1
+
+                # Stop if we've reached the end and we're not following pagination
+                if not follow_pagination and not to_page:
+                    break
 
             # Create a new MeetingList with all results
+            has_more = meeting_list.next is not None and (
+                to_page is None or current_page <= to_page
+            )
             meeting_list = MeetingList(
                 count=total_count,  # Use the total count from first response
-                next=None,
+                next=meeting_list.next if has_more else None,
                 previous=None,
                 results=all_results,
             )
