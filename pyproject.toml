@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "avoma-client"
-version = "0.1.0"
+version = "0.1.1"
 description = "An unofficial Python client for the Avoma API"
 authors = ["Oz Tamir <oz@atamir.fun>"]
 readme = "README.md"
