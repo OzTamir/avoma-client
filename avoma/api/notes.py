@@ -49,10 +49,15 @@ class NotesAPI:
         )
 
         params = query.model_dump(exclude_none=True)
+        # Convert UUID objects to strings
+        if meeting_uuid:
+            params["meeting_uuid"] = str(meeting_uuid)
+        if custom_category:
+            params["custom_category"] = str(custom_category)
         if page_size is not None:
             params["page_size"] = page_size
 
-        data = await self.client._request("GET", "/notes", params=params)
+        data = await self.client._request("GET", "notes", params=params)
         notes_list = NotesList.model_validate(data)
-        self.client.logger.debug(f"Retrieved {len(notes_list.notes)} notes")
+        self.client.logger.debug(f"Retrieved {len(notes_list.results)} notes")
         return notes_list

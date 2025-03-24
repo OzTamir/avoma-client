@@ -66,7 +66,7 @@ class MeetingsAPI:
         self.client.logger.debug(f"Getting meeting with UUID: {uuid}")
         data = await self.client._request("GET", f"meetings/{uuid}")
         meeting = Meeting.model_validate(data)
-        self.client.logger.debug(f"Retrieved meeting: {meeting.title}")
+        self.client.logger.debug(f"Retrieved meeting: {meeting.subject}")
         return meeting
 
     async def get_insights(self, uuid: UUID) -> MeetingInsights:

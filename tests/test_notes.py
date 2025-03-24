@@ -45,7 +45,7 @@ async def test_list_notes_json():
     # Verify request
     client._request.assert_called_once_with(
         "GET",
-        "/notes",
+        "notes",
         params={"from_date": from_date, "to_date": to_date, "output_format": "json"},
     )
 
@@ -88,7 +88,7 @@ async def test_list_notes_markdown():
     # Verify request
     client._request.assert_called_once_with(
         "GET",
-        "/notes",
+        "notes",
         params={
             "from_date": from_date,
             "to_date": to_date,
@@ -135,11 +135,11 @@ async def test_list_notes_by_meeting():
     # Verify request with the actual UUID objects
     client._request.assert_called_once_with(
         "GET",
-        "/notes",
+        "notes",
         params={
             "from_date": from_date,
             "to_date": to_date,
-            "meeting_uuid": meeting_id,
+            "meeting_uuid": str(meeting_id),
             "output_format": "json",
         },
     )
@@ -180,11 +180,11 @@ async def test_list_notes_by_category():
     # Verify request with the actual UUID objects
     client._request.assert_called_once_with(
         "GET",
-        "/notes",
+        "notes",
         params={
             "from_date": from_date,
             "to_date": to_date,
-            "custom_category": category_id,
+            "custom_category": str(category_id),
             "output_format": "json",
         },
     )

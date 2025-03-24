@@ -56,7 +56,7 @@ async def test_list_meetings():
 
     # Verify the request was made with correct parameters
     client._request.assert_called_once_with(
-        "GET", "/meetings", params={"from_date": from_date, "to_date": to_date}
+        "GET", "meetings", params={"from_date": from_date, "to_date": to_date}
     )
 
     # Verify response
@@ -101,7 +101,7 @@ async def test_get_meeting():
     meeting = await client.meetings.get(UUID(meeting_uuid))
 
     # Verify the request was made with correct path
-    client._request.assert_called_once_with("GET", f"/meetings/{meeting_uuid}")
+    client._request.assert_called_once_with("GET", f"meetings/{meeting_uuid}")
 
     # Verify response
     assert meeting.uuid == UUID(meeting_uuid)
@@ -142,7 +142,7 @@ async def test_get_meeting_insights():
     insights = await client.meetings.get_insights(UUID(meeting_uuid))
 
     # Verify the request was made with correct path
-    client._request.assert_called_once_with("GET", f"/meetings/{meeting_uuid}/insights")
+    client._request.assert_called_once_with("GET", f"meetings/{meeting_uuid}/insights")
 
     # Verify response
     assert len(insights.ai_notes) == 1
@@ -168,7 +168,7 @@ async def test_get_meeting_sentiments():
 
     # Verify the request was made with correct parameters
     client._request.assert_called_once_with(
-        "GET", "/meeting_sentiments", params={"uuid": str(meeting_uuid)}
+        "GET", "meeting_sentiments", params={"uuid": str(meeting_uuid)}
     )
 
     # Verify response
